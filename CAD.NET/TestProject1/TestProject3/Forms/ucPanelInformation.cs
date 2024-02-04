@@ -107,6 +107,10 @@ namespace TestProject3.Forms
                                 cStart.ParcelNextNumber++;
 
                                 ed.WriteMessage($"\nParcel {po.Number} added.");
+
+                                cBCFunctions.SetObjXRecordInt32(per.ObjectId, "Number", po.Number);
+                                cBCFunctions.SetObjXRecordText(per.ObjectId, "Name", po.Name);
+                                cBCFunctions.SetObjXRecordInt32(per.ObjectId, "IsSold", po.IsSold);
                             }
 
                             tr.Commit();
@@ -145,7 +149,7 @@ namespace TestProject3.Forms
             }
         }
 
-        private void btnImport_Click(object sender, EventArgs e)
+        /*private void btnImport_Click(object sender, EventArgs e)
         {
             OpenFileDialog ofd = new OpenFileDialog();
             ofd.Filter = "Excel|*.csv";
@@ -178,6 +182,44 @@ namespace TestProject3.Forms
 
                 reader.Close();
             }
+        }*/
+
+        private void btnImport_Click(object sender, EventArgs e)
+        {
+            cStart.AllParcels.Clear();
+            lbParcels.Items.Clear();
+
+            Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
+
+            TypedValue[] tvs = new TypedValue[]
+            {
+                new TypedValue((int)DxfCode.Start, "LWPOLYLINE")
+            };
+
+            SelectionFilter filter = new SelectionFilter(tvs);
+
+            PromptSelectionResult result = ed.SelectAll(filter);
+
+            if (result.Status == PromptStatus.OK)
+            {
+                foreach (ObjectId id in result.Value.GetObjectIds())
+                {
+                    int number = cBCFunctions.GetObjXRecordInt32(id, "Number");
+
+                    if (number > -1)
+                    {
+                        string name = cBCFunctions.GetObjXRecordText(id, "Name");
+                        int sold = cBCFunctions.GetObjXRecordInt32(id, "IsSold");
+
+                        cParcelObject po = new cParcelObject(id, number);
+                        po.Name = name;
+                        po.IsSold = sold;
+
+                        cStart.AllParcels.Add(po);
+                        lbParcels.Items.Add(number);
+                    }
+                }
+            }
         }
 
         private void lbParcels_DoubleClick(object sender, EventArgs e)
@@ -191,6 +233,9 @@ namespace TestProject3.Forms
                     if (po.Number == parcelNr)
                     {
                         fParcelProperties form = new fParcelProperties(po);
+                        cBCFunctions.SetObjXRecordInt32(po.Id, "IsSold", po.IsSold);
+                        cBCFunctions.SetObjXRecordText(po.Id, "Name", po.Name);
+
                         break;
                     }
                 }
@@ -222,6 +267,22 @@ namespace TestProject3.Forms
                         string number = $"Nr. {po.Number}";
 
                         DBText text = cBCFunctions.PlaceSLText(ptCenterText, "ParcelNumbers", 5.0d, number);
+
+                        double diameter = text.Bounds.Value.MaxPoint.X - text.Bounds.Value.MinPoint.X;
+
+                        double xCenter = (text.Bounds.Value.MinPoint.X + text.Bounds.Value.MaxPoint.X) / 2;
+
+                        double yCenter = (text.Bounds.Value.MinPoint.Y + text.Bounds.Value.MaxPoint.Y) / 2;
+
+                        Point3d ptCenterCircle = new Point3d(xCenter, yCenter, 0.0d);
+
+                        int color = 1;
+                        if (po.IsSold == 1)
+                        {
+                            color = 3;
+                        }
+
+                        cBCFunctions.PlaceCircle(ptCenterCircle, diameter / 2.0d, "ParcelNumbers", color);
                     }
 
                     tr.Commit();
